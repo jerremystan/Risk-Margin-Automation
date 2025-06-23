@@ -1,0 +1,51 @@
+Sub Correl()
+
+    
+    Dim ws As Worksheet
+    
+    Set ws = ThisWorkbook.Sheets("Correlation")
+    
+    MsgBox ColLetter(26)
+    
+    For i = 1 To 10
+        
+        For j = 1 To 10
+        
+            ws.Cells(23 + i, 14 + j).Formula = "=CORREL(" & ColLetter(2 + i) & "24:" & ColLetter(2 + i) & "29," & ColLetter(2 + j) & "24:" & ColLetter(2 + j) & "29)"
+
+        Next j
+    
+    Next i
+    
+    For i = 1 To 9
+        
+        For j = 1 To 9
+        
+            ws.Cells(36 + i, 14 + j).Formula = "=CORREL(" & ColLetter(2 + i) & "37:" & ColLetter(2 + i) & "42," & ColLetter(2 + j) & "37:" & ColLetter(2 + j) & "42)"
+
+        Next j
+    
+    Next i
+    
+    
+End Sub
+
+
+
+Function ColLetter(ByVal colNum As Long) As String
+    Dim cLetter As String
+    cLetter = ""
+
+    Do While colNum > 0
+        colNum = colNum - 1
+        cLetter = Chr((colNum Mod 26) + 65) & cLetter
+        colNum = colNum \ 26
+    Loop
+
+    ColLetter = cLetter
+End Function
+
+Function GetAddress(cell As Range) As String
+    ' Returns the address of the referenced cell as a string
+    GetAddress = cell.Address(RowAbsolute:=False, ColumnAbsolute:=False)
+End Function
