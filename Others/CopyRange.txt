@@ -1,0 +1,115 @@
+Sub CopyRange()
+
+    Application.Calculation = xlCalculationManual
+
+    Dim ws As Worksheet
+    Dim src As Range
+    Dim dest As Range
+    Dim StForm As String
+    Dim cell As Range
+    
+    Dim newRow As Integer
+
+    Set ws = ThisWorkbook.Sheets("STD Checking")
+    
+    Set rsSD = STDevRs
+    
+    rsSD.MoveFirst
+    
+    If Not rsSD.EOF Then
+        Do While Not rsSD.EOF
+    
+    
+            newRow = rsSD.Fields("Row Name").Value
+            
+            Set src = ws.Range("A1:AZ58")
+            Set dest = ws.Range("A" & newRow & ":AZ" & newRow + 57)
+        
+            ' Ensure the source and destination ranges are of equal size
+            If src.Rows.Count <> dest.Rows.Count Or src.Columns.Count <> dest.Columns.Count Then
+                MsgBox "Source and destination ranges are not of the same size!", vbExclamation
+                Exit Sub
+            End If
+        
+            ' Loop through each cell in the source range
+            For Each cell In src
+                ' Read the formula from the source cell
+                StForm = cell.Formula
+        
+                ' Adjust the formula's row reference dynamically
+                StForm = Replace(StForm, "Auto_Net", rsSD.Fields("Sheet Name CL").Value)
+        
+                ' Write the adjusted formula to the corresponding destination cell
+                dest.Cells(cell.Row - src.Row + 1, cell.Column - src.Column + 1).Formula = StForm
+            Next cell
+            
+            ws.Cells(newRow, 1).Value = rsSD.Fields("Sheet Name CL").Value
+        
+            rsSD.MoveNext
+        
+        Loop
+        
+    End If
+
+    Application.Calculation = xlCalculationAutomatic
+
+    MsgBox "Done"
+
+End Sub
+
+Private Function STDevRs() As ADODB.Recordset
+    Dim rs As ADODB.Recordset
+    Set rs = New ADODB.Recordset
+    
+    With rs
+        Set .ActiveConnection = Nothing
+        .CursorLocation = adUseClient
+        .Fields.Append "Sheet Name CL", adVarChar, 200
+        .Fields.Append "Row Name", adInteger
+        .Open
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Eng-All_Net"
+        .Fields("Row Name").Value = 61
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Fire-All_Net"
+        .Fields("Row Name").Value = 121
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine-ECommerce_Net"
+        .Fields("Row Name").Value = 181
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine-Other_Net"
+        .Fields("Row Name").Value = 241
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "PA-Retail_Net"
+        .Fields("Row Name").Value = 301
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Liability-All_Net"
+        .Fields("Row Name").Value = 361
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Travel-Retail_Net"
+        .Fields("Row Name").Value = 421
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "TradeCredit-All_Net"
+        .Fields("Row Name").Value = 481
+        .Update
+        
+        
+    End With
+    
+    Set STDevRs = rs
+End Function
