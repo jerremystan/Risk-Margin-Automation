@@ -1,0 +1,33 @@
+Sub GantiRow()
+
+    Dim oldF As String
+    Dim newF As String
+    Dim RowA As Variant
+    Dim ws As Worksheet
+    
+    Application.Calculation = xlCalculationManual
+    
+    Set ws = ThisWorkbook.Sheets("Summary")
+    
+    RowA = Array("15", "16", "17", "20", "21", "18", "22", "22", "25", "25", "24", "26", "22")
+    
+    ColA = Array("L", "M", "D", "G", "K", "D", "G", "K")
+    PerA = Array("75", "95", "75", "75", "75", "95", "95", "95")
+    
+    
+    For i = 1 To 13
+        
+        For j = 1 To 8
+            
+            ws.Cells(7 + i, 1 + j).Formula = "=RiskMargins_" & PerA(j - 1) & "th!" & ColA(j - 1) & RowA(i - 1)
+            
+        Next j
+    
+    Next i
+    
+    Application.Calculation = xlCalculationAutomatic
+    
+    Beep
+    MsgBox "Done"
+    
+End Sub
