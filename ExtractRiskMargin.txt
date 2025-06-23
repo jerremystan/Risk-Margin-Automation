@@ -1,0 +1,556 @@
+
+Private Const c_ = "RiskMargin 202312.v1"
+Private Const c_Projects = "202312"
+Private Const c_User = "Master"
+Private Const c_Pass = ""
+Private Const ValDate = "202312"
+Private Const Valuation = "2023-12-31"
+Private Const Alamat = "D:\Stanley\Tugas IFRS17\Risk Margin\" & ValDate
+Private Const Mod = "\RR 2023 (Data as at December 2023).xlsm"
+Private Const OriDev = 57
+Private Const OutVer = "v1"
+
+Sub RiskMargin2()
+
+    SwitchOff (True)
+    
+    Application.DisplayAlerts = False
+    Application.ScreenUpdating = False
+
+    Dim rsSheetsN As ADODB.Recordset
+    Dim rsRM As ADODB.Recordset
+
+    Dim resQ As New ResQApplication
+    Dim projectResQ As xResQProject
+    Dim reservingClassResQ As xReservingClass
+    Dim linkRow As Integer
+    Dim resRow As Integer
+    Dim lastRow As Long
+    
+    Dim wsMod As Worksheet
+
+    Dim wbPCNet As Workbook
+
+    Dim newWorkbook As Workbook
+    Dim linkWorkbook As Workbook
+    
+    Dim masterSheet As Worksheet
+    Dim newSheet As Worksheet
+
+    Dim wsPCNet As Worksheet
+
+    Dim wsLink As Worksheet
+    Dim wsLinkA As Worksheet
+    
+    Dim DFMP As xDFMMethod
+    Dim BSM As xBootstrapMethod
+    Dim BSO As xBootstrapMethod
+    Dim APE As Variant
+    Dim MPE As Variant
+    
+    Dim ws75 As Worksheet
+    Dim ws95 As Worksheet
+    
+    Dim MCon As xStochasticConsolidation
+    Dim OCon As xStochasticConsolidation
+    
+    Dim SavePath As String
+    
+    'timer
+    Dim startTime As Date
+    Dim endTime As Date
+    Dim elapsedTime As Double
+    Dim formattedTime As String
+    startTime = Now
+    
+    'Looping Folder
+    
+    Set ws75 = ThisWorkbook.Sheets("RiskMargins_75th")
+    Set ws95 = ThisWorkbook.Sheets("RiskMargins_95th")
+    
+    linkRow = 1
+    resRow = 1
+     
+    Application.Calculation = xlCalculationManual
+    
+    linkRow = linkRow + 1
+    
+    Call resQ.ConnectByName(c_, c_User, c_Pass)
+    Set projectResQ = resQ.Projects(c_Projects)
+    
+
+    
+    Set rsRM = RMList
+    rsRM.MoveFirst
+    
+    If Not rsRM.EOF Then
+        Do While Not rsRM.EOF
+        
+        Set reservingClassResQ = projectResQ.ReservingClasses(rsRM.Fields("ResQ Path").Value)
+        Debug.Print rsRM.Fields("Sheet Name CL").Value
+        
+        Set DFMP = reservingClassResQ.Vectors("DFM Paid Claims Ultimate").Method
+        Set BSM = reservingClassResQ.Vectors("Paid Bootstrap - Mack").Method
+        Set BSO = reservingClassResQ.Vectors("Paid Bootstrap - ODP").Method
+                
+        '5. Extract to Excel Sheet
+        
+        ws75.Cells(rsRM.Fields("Row Name").Value, 2).Value = BSM.ScaledReserves.Mean(0)
+        ws95.Cells(rsRM.Fields("Row Name").Value, 2).Value = BSM.ScaledReserves.Mean(0)
+        
+        ws75.Cells(rsRM.Fields("Row Name").Value, 3).Value = BSM.ScaledReserves.PercentileValue(0, 0.75)
+        ws95.Cells(rsRM.Fields("Row Name").Value, 3).Value = BSM.ScaledReserves.PercentileValue(0, 0.95)
+        
+        ws75.Cells(rsRM.Fields("Row Name").Value, 5).Value = BSO.ScaledReserves.Mean(0)
+        ws95.Cells(rsRM.Fields("Row Name").Value, 5).Value = BSO.ScaledReserves.Mean(0)
+    
+        ws75.Cells(rsRM.Fields("Row Name").Value, 6).Value = BSO.ScaledReserves.PercentileValue(0, 0.75)
+        ws95.Cells(rsRM.Fields("Row Name").Value, 6).Value = BSO.ScaledReserves.PercentileValue(0, 0.95)
+        
+        ws75.Cells(rsRM.Fields("Row Name").Value, 9).Value = DFMP.TotalReserves(0)
+        ws95.Cells(rsRM.Fields("Row Name").Value, 9).Value = DFMP.TotalReserves(0)
+        
+        ws75.Cells(rsRM.Fields("Row Name").Value, 10).Value = DFMP.PercentileReserve(0, 0.75)
+        ws95.Cells(rsRM.Fields("Row Name").Value, 10).Value = DFMP.PercentileReserve(0, 0.95)
+        
+        rsRM.MoveNext
+        
+        Loop
+        
+    End If
+    
+    'This Part (Marine and Company), the Format is Created Manually
+    
+    Set rsCon = ConsolidationRs
+    rsCon.MoveFirst
+    
+    If Not rsCon.EOF Then
+    
+        Do While Not rsCon.EOF
+            
+            Set reservingClassResQ = projectResQ.ReservingClasses(rsCon.Fields("ResQ Path").Value)
+            Set MCon = reservingClassResQ.Vectors("Paid Bootstrap Consolidation - Mack").Method
+            Set OCon = reservingClassResQ.Vectors("Paid Bootstrap Consolidation - ODP").Method
+            Set DFMP = reservingClassResQ.Vectors("DFM Paid Claims Ultimate").Method
+            
+            MCon.Consolidate
+            MCon.Save
+            
+            OCon.Consolidate
+            OCon.Save
+            
+            ws75.Cells(rsCon.Fields("Row Name").Value, 2).Value = MCon.ScaledReserves.Mean(0)
+            ws95.Cells(rsCon.Fields("Row Name").Value, 2).Value = MCon.ScaledReserves.Mean(0)
+        
+            ws75.Cells(rsCon.Fields("Row Name").Value, 3).Value = MCon.ScaledReserves.PercentileValue(0, 0.75)
+            ws95.Cells(rsCon.Fields("Row Name").Value, 3).Value = MCon.ScaledReserves.PercentileValue(0, 0.95)
+        
+            ws75.Cells(rsCon.Fields("Row Name").Value, 5).Value = OCon.ScaledReserves.Mean(0)
+            ws95.Cells(rsCon.Fields("Row Name").Value, 5).Value = OCon.ScaledReserves.Mean(0)
+    
+            ws75.Cells(rsCon.Fields("Row Name").Value, 6).Value = OCon.ScaledReserves.PercentileValue(0, 0.75)
+            ws95.Cells(rsCon.Fields("Row Name").Value, 6).Value = OCon.ScaledReserves.PercentileValue(0, 0.95)
+        
+            ws75.Cells(rsCon.Fields("Row Name").Value, 9).Value = DFMP.TotalReserves(0)
+            ws95.Cells(rsCon.Fields("Row Name").Value, 9).Value = DFMP.TotalReserves(0)
+        
+            ws75.Cells(rsCon.Fields("Row Name").Value, 10).Value = DFMP.PercentileReserve(0, 0.75)
+            ws95.Cells(rsCon.Fields("Row Name").Value, 10).Value = DFMP.PercentileReserve(0, 0.95)
+        
+            rsCon.MoveNext
+        Loop
+    
+    End If
+    
+    
+    resQ.Disconnect
+    
+    
+
+    Application.Calculation = xlCalculationAutomatic
+    
+
+    'end time
+    endTime = Now
+    'elapsed time
+    elapsedTime = DateDiff("s", startTime, endTime)
+    formattedTime = FormatTime(elapsedTime)
+    
+    MsgBox "Done!" & vbCrLf & "Running time: " & formattedTime
+    
+    Application.DisplayAlerts = True
+    Application.ScreenUpdating = True
+    
+    SwitchOff (False)
+
+
+End Sub
+
+Private Function SheetsListNet() As ADODB.Recordset
+    Dim rs As ADODB.Recordset
+    Set rs = New ADODB.Recordset
+    
+    With rs
+        Set .ActiveConnection = Nothing
+        .CursorLocation = adUseClient
+        .Fields.Append "Sheet Name CL", adVarChar, 200
+        .Fields.Append "New Name", adVarChar, 200
+        .Fields.Append "Model Sheet", adVarChar, 200
+        .Fields.Append "ResQ Path", adVarChar, 200
+        .Open
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-OD-PartialLoss"
+        .Fields("New Name").Value = "Auto"
+        .Fields("Model Sheet").Value = "Auto-OD PartialLoss Comb_Net"
+        .Fields("ResQ Path").Value = "Auto\OD\Partial Loss"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-OD-TotalLoss-MotorCycle"
+        .Fields("New Name").Value = "Auto"
+        .Fields("Model Sheet").Value = "Auto-OD TotLoss_Mcycle_Net"
+        .Fields("ResQ Path").Value = "Auto\OD\Total Loss\Motorcycle"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-OD-TotalLoss-NonMotorCycle"
+        .Fields("New Name").Value = "Auto"
+        .Fields("Model Sheet").Value = "Auto-OD TotLoss_Non-Mcycle_Net"
+        .Fields("ResQ Path").Value = "Auto\OD\Total Loss\Non Motorcycle"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-TP"
+        .Fields("New Name").Value = "Auto"
+        .Fields("Model Sheet").Value = "Auto-TP_Net"
+        .Fields("ResQ Path").Value = "Auto\TP"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Engineering"
+        .Fields("New Name").Value = "Engineering"
+        .Fields("Model Sheet").Value = "Eng-All_Net"
+        .Fields("ResQ Path").Value = "Engineering"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Fire"
+        .Fields("New Name").Value = "Fire"
+        .Fields("Model Sheet").Value = "Fire-All_Net"
+        .Fields("ResQ Path").Value = "Fire"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine-Other"
+        .Fields("New Name").Value = "Marine-Other"
+        .Fields("Model Sheet").Value = "Marine-Other_Net"
+        .Fields("ResQ Path").Value = "Marine\Non E-Commerce"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine-ECommerce"
+        .Fields("New Name").Value = "Marine-ECommerce"
+        .Fields("Model Sheet").Value = "Marine-ECommerce_Net"
+        .Fields("ResQ Path").Value = "Marine\E-Commerce"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Liability"
+        .Fields("New Name").Value = "Liability"
+        .Fields("Model Sheet").Value = "Liability-All_Net"
+        .Fields("ResQ Path").Value = "Liability"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "PA-Retail"
+        .Fields("New Name").Value = "PA-Retail"
+        .Fields("Model Sheet").Value = "PA-Retail_Net"
+        .Fields("ResQ Path").Value = "PA\Retail"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "PA-Commercial"
+        .Fields("New Name").Value = "PA-Commercial"
+        .Fields("Model Sheet").Value = "PA-Commercial_Net"
+        .Fields("ResQ Path").Value = "PA\Commercial"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Travel-Commercial"
+        .Fields("New Name").Value = "Travel-Commercial"
+        .Fields("Model Sheet").Value = "Travel-Commercial_Net"
+        .Fields("ResQ Path").Value = "Travel\Commercial"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Travel-Retail"
+        .Fields("New Name").Value = "Travel-Retail"
+        .Fields("Model Sheet").Value = "Travel-Retail_Net"
+        .Fields("ResQ Path").Value = "Travel\Retail"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Trade Credit"
+        .Fields("New Name").Value = "Trade Credit"
+        .Fields("Model Sheet").Value = "TradeCredit-All_Net"
+        .Fields("ResQ Path").Value = "Trade Credit"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Various"
+        .Fields("New Name").Value = "Various"
+        .Fields("Model Sheet").Value = "Various-All_Net"
+        .Fields("ResQ Path").Value = "Various\Non E-Commerce"
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Health"
+        .Fields("New Name").Value = "Health"
+        .Fields("Model Sheet").Value = "Health-All_Net"
+        .Fields("ResQ Path").Value = "Health"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Various-ECommerce"
+        .Fields("New Name").Value = "Various-ECommerce"
+        .Fields("Model Sheet").Value = "Various-Ecommerce_Net"
+        .Fields("ResQ Path").Value = "Various\Commerce"
+        .Update
+        
+    End With
+    
+    Set SheetsListNet = rs
+End Function
+
+
+Private Function RMList() As ADODB.Recordset
+    Dim rs As ADODB.Recordset
+    Set rs = New ADODB.Recordset
+    
+    With rs
+        Set .ActiveConnection = Nothing
+        .CursorLocation = adUseClient
+        .Fields.Append "Sheet Name CL", adVarChar, 200
+        .Fields.Append "Row Name", adInteger
+        .Fields.Append "Model Sheet", adVarChar, 200
+        .Fields.Append "ResQ Path", adVarChar, 200
+        .Open
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-OD-PartialLoss"
+        .Fields("Row Name").Value = 15
+        .Fields("Model Sheet").Value = "Auto-OD PartialLoss Comb_Net"
+        .Fields("ResQ Path").Value = "Auto\OD\Partial Loss"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-OD-TotalLoss-MotorCycle"
+        .Fields("Row Name").Value = 15
+        .Fields("Model Sheet").Value = "Auto-OD TotLoss_Mcycle_Net"
+        .Fields("ResQ Path").Value = "Auto\OD\Total Loss\Motorcycle"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-OD-TotalLoss-NonMotorCycle"
+        .Fields("Row Name").Value = 15
+        .Fields("Model Sheet").Value = "Auto-OD TotLoss_Non-Mcycle_Net"
+        .Fields("ResQ Path").Value = "Auto\OD\Total Loss\Non Motorcycle"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto-TP"
+        .Fields("Row Name").Value = 15
+        .Fields("Model Sheet").Value = "Auto-TP_Net"
+        .Fields("ResQ Path").Value = "Auto\TP"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Auto"
+        .Fields("Row Name").Value = 15
+        .Fields("Model Sheet").Value = "Auto"
+        .Fields("ResQ Path").Value = "Auto"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Engineering"
+        .Fields("Row Name").Value = 16
+        .Fields("Model Sheet").Value = "Eng-All_Net"
+        .Fields("ResQ Path").Value = "Engineering"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Fire"
+        .Fields("Row Name").Value = 17
+        .Fields("Model Sheet").Value = "Fire-All_Net"
+        .Fields("ResQ Path").Value = "Fire"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine-Other"
+        .Fields("Row Name").Value = 21
+        .Fields("Model Sheet").Value = "Marine-Other_Net"
+        .Fields("ResQ Path").Value = "Marine\Non E-Commerce"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine-ECommerce"
+        .Fields("Row Name").Value = 20
+        .Fields("Model Sheet").Value = "Marine-ECommerce_Net"
+        .Fields("ResQ Path").Value = "Marine\E-Commerce"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Liability"
+        .Fields("Row Name").Value = 18
+        .Fields("Model Sheet").Value = "Liability-All_Net"
+        .Fields("ResQ Path").Value = "Liability"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "PA-Retail"
+        .Fields("Row Name").Value = 22
+        .Fields("Model Sheet").Value = "PA-Retail_Net"
+        .Fields("ResQ Path").Value = "PA\Retail"
+        .Update
+
+'        .AddNew
+'        .Fields("Sheet Name CL").Value = "PA-Commercial"
+'        .Fields("Row Name").Value = "PA-Commercial"
+'        .Fields("Model Sheet").Value = "PA-Commercial_Net"
+'        .Fields("ResQ Path").Value = "PA\Commercial"
+'        .Update
+
+'        .AddNew
+'        .Fields("Sheet Name CL").Value = "Travel-Commercial"
+'        .Fields("Row Name").Value = "Travel-Commercial"
+'        .Fields("Model Sheet").Value = "Travel-Commercial_Net"
+'        .Fields("ResQ Path").Value = "Travel\Commercial"
+'        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Travel-Retail"
+        .Fields("Row Name").Value = 25
+        .Fields("Model Sheet").Value = "Travel-Retail_Net"
+        .Fields("ResQ Path").Value = "Travel\Retail"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Trade Credit"
+        .Fields("Row Name").Value = 24
+        .Fields("Model Sheet").Value = "TradeCredit-All_Net"
+        .Fields("ResQ Path").Value = "Trade Credit"
+        .Update
+
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Various"
+        .Fields("Row Name").Value = 26
+        .Fields("Model Sheet").Value = "Various-All_Net"
+        .Fields("ResQ Path").Value = "Various\Non E-Commerce"
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Health"
+        .Fields("Row Name").Value = 27
+        .Fields("Model Sheet").Value = "Health-All_Net"
+        .Fields("ResQ Path").Value = "Health"
+        .Update
+
+'        .AddNew
+'        .Fields("Sheet Name CL").Value = "Various-ECommerce"
+'        .Fields("Row Name").Value = "Various-ECommerce"
+'        .Fields("Model Sheet").Value = "Various-Ecommerce_Net"
+'        .Fields("ResQ Path").Value = "Various\Commerce"
+'        .Update
+        
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Various"
+        .Fields("Row Name").Value = 23
+        .Fields("Model Sheet").Value = "Various"
+        .Fields("ResQ Path").Value = "Various"
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine"
+        .Fields("Row Name").Value = 19
+        .Fields("Model Sheet").Value = "Marine"
+        .Fields("ResQ Path").Value = "Marine"
+        .Update
+        
+        
+    End With
+    
+    Set RMList = rs
+End Function
+
+Private Function ConsolidationRs() As ADODB.Recordset
+    Dim rs As ADODB.Recordset
+    Set rs = New ADODB.Recordset
+    
+    With rs
+        Set .ActiveConnection = Nothing
+        .CursorLocation = adUseClient
+        .Fields.Append "Sheet Name CL", adVarChar, 200
+        .Fields.Append "Row Name", adInteger
+        .Fields.Append "ResQ Path", adVarChar, 200
+        .Open
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Marine"
+        .Fields("Row Name").Value = 33
+        .Fields("ResQ Path").Value = "Marine - Consolidation"
+        .Update
+        
+        .AddNew
+        .Fields("Sheet Name CL").Value = "Company"
+        .Fields("Row Name").Value = 34
+        .Fields("ResQ Path").Value = "Company - Consolidation"
+        .Update
+
+        
+    End With
+    
+    Set ConsolidationRs = rs
+End Function
+
+Private Function FormatTime(ByVal seconds As Double) As String
+    Dim hours As Long
+    Dim minutes As Long
+    Dim remainingSeconds As Long
+    
+    ' Calculate hours, minutes, and remaining seconds
+    hours = seconds \ 3600
+    seconds = seconds Mod 3600
+    minutes = seconds \ 60
+    remainingSeconds = seconds Mod 60
+    
+    ' Format the time as "hour:minute:second"
+    FormatTime = Format(hours, "00") & ":" & Format(minutes, "00") & ":" & Format(remainingSeconds, "00")
+End Function
+Private Sub SwitchOff(bSwitchOff As Boolean)
+    Dim ws As Worksheet
+    
+    With Application
+        If bSwitchOff Then
+            'OFF
+            .Calculation = xlCalculationManual
+            .ScreenUpdating = False
+            .EnableAnimations = False
+         
+            'switch off display pagebreaks for all worksheets
+            For Each ws In ThisWorkbook.Worksheets
+                ws.DisplayPageBreaks = False
+            Next ws
+        Else
+            'ON
+            .Calculation = xlCalculationAutomatic
+            .ScreenUpdating = True
+            .EnableAnimations = True
+        End If
+    End With
+End Sub
+
+
+
+
